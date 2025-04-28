@@ -126,7 +126,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = LegalBertClassifier(BERT_MODEL_NAME, num_labels).to(device)
 
 # Optimizer and Loss Function
-optimizer = optim.AdamW(model.parameters(), lr=2e-5)
+optimizer = optim.AdamW(model.parameters(), lr=5e-5)
 criterion = nn.CrossEntropyLoss()
 
 # Training Loop
