@@ -1,5 +1,3 @@
-# --- START OF COMPLETE FILE bertlvnOG_enhanced_v2_cuda_only.py ---
-# This script is modified to REQUIRE CUDA and will exit if it's not available.
 
 import pandas as pd
 import torch
@@ -24,10 +22,10 @@ DATA_FRACTION = 1.0 # Use 1.0 for all data, 0.1 for 10%, etc. Set to 0.05 for qu
 
 # Model & Tokenizer
 BERT_MODEL_NAME = 'colaguo/legalclassBERTlarge' # Specific model from Hugging Face Hub
-MAX_LENGTH = 128  # Adjust as needed.
+MAX_LENGTH = 512  # Adjust as needed.
 
 # Training Hyperparameters
-LEARNING_RATE = 2e-5
+LEARNING_RATE = 8e-5
 BATCH_SIZE = 16 # Reduced batch size might be needed for larger models like 'large'
 EPOCHS = 30 # Max number of epochs
 DROPOUT_RATE = 0.3
@@ -37,10 +35,10 @@ EARLY_STOPPING_PATIENCE = 5 # Number of epochs to wait for improvement before st
 EARLY_STOPPING_METRIC = 'val_loss' # Metric to monitor ('val_loss' or 'val_f1_weighted')
 
 # Undersampling Configuration
-ENABLE_UNDERSAMPLING = True 
+ENABLE_UNDERSAMPLING = True
 TARGET_LABEL_ORDER = ['cited', 'referred to', 'applied', 'followed', 'considered', 'discussed', 'distinguished', 'related', 'affirmed', 'approved']
 # Proportions relative to the most frequent class, aligned with TARGET_LABEL_ORDER.
-UNDERSAMPLING_ARRAY = [.329, .550, .735, .766, .879, 1, 1, 1, 1, 1] # Ensure length matches TARGET_LABEL_ORDER
+UNDERSAMPLING_ARRAY = [.329**.5, .550**.5, .735**.5, .766**.5, .879**.5, 1, 1, 1, 1, 1] # Ensure length matches TARGET_LABEL_ORDER
 
 # --- Dataset Class ---
 class LegalDataset(Dataset):
@@ -79,9 +77,11 @@ class LegalBertClassifier(nn.Module):
         super(LegalBertClassifier, self).__init__()
         self.bert = AutoModel.from_pretrained(bert_model_name)
         self.dropout = nn.Dropout(dropout_rate)
-        self.linear1 = nn.Linear(self.bert.config.hidden_size, 256)
+        self.linear1 = nn.Linear(self.bert.config.hidden_size, 128)
         self.relu = nn.ReLU()
-        self.linear2 = nn.Linear(256, num_labels)
+        self.linear2 = nn.Linear(128, 32)
+        self.relu2 = nn.ReLU()
+        self.linear3 = nn.Linear(32, num_labels)
 
     def forward(self, input_ids, attention_mask):
         outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask)
@@ -92,6 +92,10 @@ class LegalBertClassifier(nn.Module):
         x = self.relu(x)
         x = self.dropout(x)
         x = self.linear2(x)
+        x = self.relu2(x)
+        x = self.dropout(x)
+        x = self.linear3(x)
+
         return x
 
 # --- Helper Function for Epoch Metrics ---
@@ -167,27 +171,41 @@ if __name__ == "__main__":
     for label, count in sorted(original_label_counts.items()):
         print(f"- {label}: {count} ({count / len(original_labels) * 100:.2f}%)")
 
-    texts_to_use = original_texts
-    labels_to_use = [label_map[label] for label in original_labels]
+    # Split data BEFORE undersampling
+    train_texts, val_texts, train_labels, val_labels = train_test_split(
+        original_texts, original_labels, test_size=0.2, random_state=42,
+        stratify=original_labels if len(set(original_labels)) > 1 else None
+    )
 
-    # 2.1 Apply Undersampling (if enabled)
+    print(f"Initial Training set size: {len(train_texts)}")
+    print(f"Validation set size: {len(val_texts)}")
+
+
+    # Map labels to numerical indices *after* the split.
+    train_labels_numerical = [label_map[label] for label in train_labels]
+    val_labels_numerical = [label_map[label] for label in val_labels]
+
+
+    # 2.1 Apply Undersampling (if enabled) *ONLY* to the TRAINING data
     if ENABLE_UNDERSAMPLING:
         print("\nApplying Undersampling based on TARGET_LABEL_ORDER...")
         if len(UNDERSAMPLING_ARRAY) != len(TARGET_LABEL_ORDER):
              print(f"Error: UNDERSAMPLING_ARRAY length ({len(UNDERSAMPLING_ARRAY)}) must match TARGET_LABEL_ORDER length ({len(TARGET_LABEL_ORDER)}). Disabling undersampling.")
              ENABLE_UNDERSAMPLING = False
         else:
-            if not original_label_counts:
-                 print("Warning: No labels found in the data. Cannot perform undersampling.")
+            train_label_counts = Counter(train_labels) # Use train_labels here
+
+            if not train_label_counts:
+                 print("Warning: No labels found in the TRAINING data. Cannot perform undersampling.")
                  ENABLE_UNDERSAMPLING = False
             else:
-                most_frequent_label_name = max(original_label_counts, key=original_label_counts.get)
-                max_count = original_label_counts[most_frequent_label_name]
-                print(f"Most frequent class in original data: '{most_frequent_label_name}', Count: {max_count}")
+                most_frequent_label_name = max(train_label_counts, key=train_label_counts.get)
+                max_count = train_label_counts[most_frequent_label_name]
+                print(f"Most frequent class in TRAINING data: '{most_frequent_label_name}', Count: {max_count}")
 
                 inv_label_map = {v: k for k, v in label_map.items()}
                 target_counts = {}
-                numerical_label_counts = Counter(labels_to_use)
+                numerical_label_counts = Counter(train_labels_numerical)
 
                 print("Calculating target counts for undersampling:")
                 for i, target_label_name in enumerate(TARGET_LABEL_ORDER):
@@ -204,7 +222,7 @@ if __name__ == "__main__":
 
                     print(f"  - Label '{target_label_name}' (Index {numerical_label_index}): Proportion={target_proportion:.3f}, Target={target_count}, Available={current_count} => Final Target={final_target_count}")
 
-                temp_df = pd.DataFrame({'text': original_texts, 'label': labels_to_use})
+                temp_df = pd.DataFrame({'text': train_texts, 'label': train_labels_numerical})
                 indices_to_keep = []
 
                 for numerical_label_index, target_size in target_counts.items():
@@ -217,29 +235,36 @@ if __name__ == "__main__":
 
                 undersampled_df = temp_df.loc[indices_to_keep].copy()
                 undersampled_df = undersampled_df.sample(frac=1, random_state=42).reset_index(drop=True)
-                texts_to_use = undersampled_df['text'].tolist()
-                labels_to_use = undersampled_df['label'].tolist()
+                train_texts_undersampled = undersampled_df['text'].tolist()
+                train_labels_numerical_undersampled = undersampled_df['label'].tolist()
 
-                print(f"\nDataset size after undersampling: {len(texts_to_use)} rows")
-                print("New Class Distribution (Numerical Labels):")
-                new_numerical_counts = Counter(labels_to_use)
+                print(f"\nTraining dataset size after undersampling: {len(train_texts_undersampled)} rows")
+                print("New Class Distribution (Numerical Labels, TRAINING set):")
+                new_numerical_counts = Counter(train_labels_numerical_undersampled)
                 for label_idx, count in sorted(new_numerical_counts.items()):
                      label_name = inv_label_map.get(label_idx, f"Unknown Index {label_idx}")
-                     print(f"- {label_name} (Index {label_idx}): {count} ({count / len(texts_to_use) * 100:.2f}%)")
+                     print(f"- {label_name} (Index {label_idx}): {count} ({count / len(train_texts_undersampled) * 100:.2f}%)")
+
+        # Use the undersampled training data
+        train_texts = train_texts_undersampled
+        train_labels_numerical = train_labels_numerical_undersampled
+
+    else:
+        train_texts = train_texts
+        train_labels_numerical = train_labels_numerical
+
 
     # 3. Prepare Data for BERT
     print("\nPreparing data for BERT...")
     tokenizer = AutoTokenizer.from_pretrained(BERT_MODEL_NAME)
 
-    train_texts, val_texts, train_labels, val_labels = train_test_split(
-        texts_to_use, labels_to_use, test_size=0.2, random_state=42,
-        stratify=labels_to_use if len(set(labels_to_use)) > 1 else None
-    )
-    print(f"Training set size: {len(train_texts)}")
-    print(f"Validation set size: {len(val_texts)}")
 
-    train_dataset = LegalDataset(train_texts, train_labels, tokenizer, MAX_LENGTH)
-    val_dataset = LegalDataset(val_texts, val_labels, tokenizer, MAX_LENGTH)
+
+    print(f"Final Training set size (after undersampling if enabled): {len(train_texts)}")
+    print(f"Validation set size: {len(val_texts)}") # Validation set remains unchanged
+
+    train_dataset = LegalDataset(train_texts, train_labels_numerical, tokenizer, MAX_LENGTH)
+    val_dataset = LegalDataset(val_texts, val_labels_numerical, tokenizer, MAX_LENGTH)
 
     train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
     val_dataloader = DataLoader(val_dataset, batch_size=BATCH_SIZE)
@@ -421,4 +446,3 @@ if __name__ == "__main__":
     if best_model_state_dict:
         torch.save(best_model_state_dict, SAVE_PATH)
         print(f"\nBest model saved to {SAVE_PATH}")
-
