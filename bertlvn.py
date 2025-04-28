@@ -1,4 +1,5 @@
-
+# --- START OF COMPLETE FILE bertlvnOG_enhanced_v2_cuda_only.py ---
+# This script is modified to REQUIRE CUDA and will exit if it's not available.
 
 import pandas as pd
 import torch
@@ -19,7 +20,7 @@ import sys # For exiting the script
 CSV_FILE = "legal_text_classification.csv" # Correct path here
 TEXT_COLUMN = 'case_text'
 LABEL_COLUMN = 'case_outcome'
-DATA_FRACTION = 1.0
+DATA_FRACTION = 1.0 # Use 1.0 for all data, 0.1 for 10%, etc. Set to 0.05 for quick testing
 
 # Model & Tokenizer
 BERT_MODEL_NAME = 'colaguo/legalclassBERTlarge' # Specific model from Hugging Face Hub
@@ -243,14 +244,22 @@ if __name__ == "__main__":
     train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
     val_dataloader = DataLoader(val_dataset, batch_size=BATCH_SIZE)
 
+    # 4. Model Initialization & Device Selection (CUDA Check - MODIFIED)
+    # --- MODIFICATION START ---
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+        print(f"\nUsing device: {device}")
+        print(f"CUDA Device Name: {torch.cuda.get_device_name(0)}") # Print specific GPU name
+    else:
+        print("\nERROR: CUDA is not available. This script requires a CUDA-enabled GPU.")
+        print("Exiting.")
+        sys.exit(1) # Exit the script if CUDA is not found
+    # --- MODIFICATION END ---
 
-# 4. Model Training
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = LegalBertClassifier(BERT_MODEL_NAME, num_labels).to(device)
+    model = LegalBertClassifier(BERT_MODEL_NAME, num_labels, DROPOUT_RATE).to(device) # Move model to CUDA
 
-# Optimizer and Loss Function
-optimizer = optim.AdamW(model.parameters(), lr=2e-5)
-criterion = nn.CrossEntropyLoss()
+    optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE)
+    criterion = nn.CrossEntropyLoss()
 
     # --- Training Loop ---
     print("\n--- Starting Training ---")
@@ -412,3 +421,4 @@ criterion = nn.CrossEntropyLoss()
     if best_model_state_dict:
         torch.save(best_model_state_dict, SAVE_PATH)
         print(f"\nBest model saved to {SAVE_PATH}")
+
