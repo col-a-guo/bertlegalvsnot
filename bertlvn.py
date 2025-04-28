@@ -243,22 +243,14 @@ if __name__ == "__main__":
     train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
     val_dataloader = DataLoader(val_dataset, batch_size=BATCH_SIZE)
 
-    # 4. Model Initialization & Device Selection (CUDA Check - MODIFIED)
-    # --- MODIFICATION START ---
-    if torch.cuda.is_available():
-        device = torch.device("cuda")
-        print(f"\nUsing device: {device}")
-        print(f"CUDA Device Name: {torch.cuda.get_device_name(0)}") # Print specific GPU name
-    else:
-        print("\nERROR: CUDA is not available. This script requires a CUDA-enabled GPU.")
-        print("Exiting.")
-        sys.exit(1) # Exit the script if CUDA is not found
-    # --- MODIFICATION END ---
 
-    model = LegalBertClassifier(BERT_MODEL_NAME, num_labels, DROPOUT_RATE).to(device) # Move model to CUDA
+# 4. Model Training
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model = LegalBertClassifier(BERT_MODEL_NAME, num_labels).to(device)
 
-    optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE)
-    criterion = nn.CrossEntropyLoss()
+# Optimizer and Loss Function
+optimizer = optim.AdamW(model.parameters(), lr=2e-5)
+criterion = nn.CrossEntropyLoss()
 
     # --- Training Loop ---
     print("\n--- Starting Training ---")
