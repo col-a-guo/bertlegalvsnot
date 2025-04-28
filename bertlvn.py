@@ -19,7 +19,7 @@ import optuna # For hyperparameter tuning
 CSV_FILE = "legal_text_classification.csv" # Correct path here
 TEXT_COLUMN = 'case_text'
 LABEL_COLUMN = 'case_outcome'
-DATA_FRACTION = 1.0 # Use 1.0 for all data, 0.1 for 10%, etc. Set to 0.05 for quick testing
+DATA_FRACTION = 0.4 # Use 1.0 for all data, 0.1 for 10%, etc. Set to 0.05 for quick testing
 
 # Model & Tokenizer
 BERT_MODEL_NAME = 'colaguo/legalclassBERTlarge' # Specific model from Hugging Face Hub
@@ -32,7 +32,7 @@ EPOCHS = 30 # Max number of epochs
 #DROPOUT_RATE = 0.3 # Tuned
 
 # Early Stopping
-EARLY_STOPPING_PATIENCE = 5 # Number of epochs to wait for improvement before stopping
+EARLY_STOPPING_PATIENCE = 3 # Number of epochs to wait for improvement before stopping
 EARLY_STOPPING_METRIC = 'val_f1_weighted' # Metric to monitor ('val_loss' or 'val_f1_weighted')
 
 # Undersampling Configuration
