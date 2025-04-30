@@ -2,7 +2,7 @@ from transformers import BertTokenizer, BertForMaskedLM, LineByLineTextDataset, 
 from torch.utils.data import random_split
 
 # 1. Load the BusinessBERT Tokenizer and Model
-model_name = "google-bert/bert-base-uncased"
+model_name = "nlpaueb/legal-bert-base-uncased"
 tokenizer = BertTokenizer.from_pretrained(model_name)
 model = BertForMaskedLM.from_pretrained(model_name)
 
@@ -31,11 +31,11 @@ data_collator = DataCollatorForLanguageModeling(
 
 # 4. Training Arguments
 output_dir = '/working/'  # Where to save the fine-tuned model
-repo_id = "colaguo/legalclassBERT16"
+repo_id = "colaguo/legalBERTclass4"
 training_args = TrainingArguments(
     output_dir=output_dir,
     overwrite_output_dir=True,
-    num_train_epochs=16,
+    num_train_epochs=4,
     per_device_train_batch_size=32,
     per_device_eval_batch_size=32,
     evaluation_strategy="steps",
@@ -51,7 +51,7 @@ training_args = TrainingArguments(
     metric_for_best_model="eval_loss",
     greater_is_better=False,
     push_to_hub=True,  # Enable pushing to the Hub
-    hub_model_id="colaguo/legalclassBERT16",  # Your repository ID
+    hub_model_id="colaguo/legalBERTclass4",  # Your repository ID
 )
 
 # 5. Trainer
