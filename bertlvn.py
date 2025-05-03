@@ -16,7 +16,7 @@ import sys  # For exiting the script
 
 # --- Configuration ---
 # Data Handling
-CSV_FILE = 'C:\Users\collinguo\bertlegalvsnot\legal_text_classification.csv'  # Correct path here
+CSV_FILE = r'C:\Users\collinguo\bertlegalvsnot\legal_text_classification.csv'  # Correct path here
 TEXT_COLUMN = 'case_text'
 TITLE_COLUMN = 'case_title'  # Added case title column
 LABEL_COLUMN = 'case_outcome'
