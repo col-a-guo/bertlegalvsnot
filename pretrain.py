@@ -31,11 +31,11 @@ data_collator = DataCollatorForLanguageModeling(
 
 # 4. Training Arguments
 output_dir = '/working/'  # Where to save the fine-tuned model
-repo_id = "colaguo/legalBERTclass4"
+repo_id = "colaguo/legalBERTclass12"
 training_args = TrainingArguments(
     output_dir=output_dir,
     overwrite_output_dir=True,
-    num_train_epochs=4,
+    num_train_epochs=12,
     per_device_train_batch_size=32,
     per_device_eval_batch_size=32,
     evaluation_strategy="steps",
@@ -51,7 +51,7 @@ training_args = TrainingArguments(
     metric_for_best_model="eval_loss",
     greater_is_better=False,
     push_to_hub=True,  # Enable pushing to the Hub
-    hub_model_id="colaguo/legalBERTclass4",  # Your repository ID
+    hub_model_id="colaguo/legalBERTclass12",  # Your repository ID
 )
 
 # 5. Trainer
